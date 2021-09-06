@@ -1,6 +1,8 @@
 # -*- encoding=utf8 -*-
 __author__ = "woods"
 
+import base64
+import requests
 import time
 import logging
 from airtest.core.api import *
@@ -9,29 +11,64 @@ logger = logging.getLogger("airtest")
 logger.setLevel(logging.INFO)
 
 # auto_setup(__file__,devices=["Android://127.0.0.1:5037/emulator-5554"])
-# auto_setup(__file__,devices=["Android://192.168.0.106:38409/192.168.0.106:38409"])
-init_device(platform="Android", uuid="88c1ffac")
-# auto_setup(__file__, devices=["Android://127.0.0.1:5073/88c1ffac"])
-auto_setup(__file__)
+# auto_setup(__file__,devices=["Android://192.168.0.106:37838/192.168.0.106:37838"])
+# init_device(platform="Android", uuid="88c1ffac")
+auto_setup(__file__,["Android:///"])
 
 START_TIME = time.time()
 
 img_sr = Template(r"tpl1630416664320.png", record_pos=(0.114, -0.16), resolution=(1920, 1080))
-card0 = Template(r"tpl1630416777231.png", threshold=0.95, rgb=True, target_pos=3, record_pos=(0.381, -0.353),
-                 resolution=(1080, 1920))
+card0 = Template(r"tpl1630778003042.png", threshold=0.9000000000000001, rgb=False, record_pos=(0.374, -0.48), resolution=(1440, 3200))
+
 home_btn = Template(r"tpl1630416962500.png", record_pos=(0.395, 0.035), resolution=(1080, 1920))
 
 list_page = Template(r"tpl1630417399729.png", record_pos=(-0.241, -0.652), rgb=True, resolution=(1080, 1920))
 
 fire_list_header = Template(r"tpl1630643739157.png", record_pos=(0.03, -0.667), resolution=(1440, 3200))
 
-card_add = Template(r"tpl1630649378153.png", threshold=0.49999999999999983, rgb=True, record_pos=(0.431, -0.477),
-                    resolution=(1440, 3200))
+card_add = Template(r"tpl1630777945720.png", record_pos=(0.428, -0.477), resolution=(1440, 3200))
+
+
+start_fire_btn = Template(r"tpl1630677461148.png", threshold=0.45, rgb=True, record_pos=(0.375, -0.4), resolution=(1440, 3200))
+
 
 page_status = 0
 card_zero = False
 
 
+
+def getImageText(imagePath):
+    request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
+    # 二进制方式打开图片文件
+    f = open(imagePath, 'rb')
+    img = base64.b64encode(f.read())
+
+    params = {"image": img}
+    access_token = "24.c26374e1930470d248a112256cc9e94f.2592000.1633274618.282335-24798449"
+    request_url = request_url + "?access_token=" + access_token
+    headers = {'content-type': 'application/x-www-form-urlencoded'}
+    response = requests.post(request_url, data=params, headers=headers)
+    if response:
+        print(response.json())
+
+        
+def netAgain(try_num=5):
+    if try_num < 0:
+        try_num = 5
+        return
+    else:
+        try_num = try_num - 1
+    if exists(Template(r"tpl1630838602759.png", record_pos=(-0.001, -0.051), resolution=(1440, 3200))):
+        touch(Template(r"tpl1630838616881.png", record_pos=(0.19, 0.187), resolution=(1440, 3200)))
+        sleep(5)
+        netAgain(try_num)
+    else:
+        return
+
+def tryNet():
+    netAgain()
+
+        
 def goList():
     try:
         return wait(Template(r"tpl1630417399729.png", record_pos=(-0.241, -0.652), resolution=(1080, 1920)))
@@ -41,7 +78,7 @@ def goList():
 
 
 def isZero():
-    return exists(card_add)
+    return exists(card0)
 
 
 def noRaid():
@@ -56,6 +93,10 @@ def noRaid():
         keyevent("BACK")
         sleep(1)
         return "raid over"
+    elif exists(start_fire_btn):
+        touch(start_fire_btn)
+        sleep(1)
+        return 0
     else:
         return 0
 
@@ -67,7 +108,7 @@ def goFire():
         wait(fire_list_header)
         touch(wait(Template(r"tpl1630418313475.png", record_pos=(-0.008, -0.089), resolution=(1080, 1920))))
         sleep(5)
-        touch(wait(Template(r"tpl1630418388808.png", record_pos=(0.381, -0.256), resolution=(1080, 1920))))
+        touch(wait(start_fire_btn))
         sleep(5)
         result_raid = noRaid()
         if result_raid != 0:
@@ -93,7 +134,7 @@ def getPageStatus():
     elif exists(home_btn):
         return 0
 
-
+error_num = 5
 while True:
     # 超过5个小时就自动停止
     if time.time() - START_TIME > 60*60*5:
@@ -109,18 +150,28 @@ while True:
         if not isZero():
             result_fire = goFire()
             if result_fire == -1:
+                error_num = error_num - 1
+                if error_num < 0:
+                    error_num = 5
+                    stop_app('com.nextfloor.destinychild')
+                    sleep(1)
+                    stop_app("com.nextfloor.destinychild")
+                    logger.error("重启 APP")
                 continue
             elif result_fire == "raid over":
                 logger.info("FIRE RAID OVER")
                 continue
             elif result_fire == 0:
                 logger.info("FIRE FINISH")
+                sleep(60*3)
                 continue
             else:
                 logger.info("FIRE SLEEP")
-                sleep(60 * 20)
+                sleep(60 * 10)
         else:
             logger.info("CARD ZERO TO SLEEP")
-            sleep(60 * 15)
+            sleep(60 * 10)
 
 logger.info("finish")
+
+
