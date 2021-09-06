@@ -5,6 +5,7 @@ import base64
 import requests
 import time
 import logging
+
 from airtest.core.api import *
 
 logger = logging.getLogger("airtest")
@@ -12,13 +13,20 @@ logger.setLevel(logging.INFO)
 
 # auto_setup(__file__,devices=["Android://127.0.0.1:5037/emulator-5554"])
 # auto_setup(__file__,devices=["Android://192.168.0.106:37838/192.168.0.106:37838"])
-# init_device(platform="Android", uuid="88c1ffac")
-auto_setup(__file__,["Android:///"])
+init_device(platform="Android", uuid="88c1ffac")
+auto_setup(__file__)
 
 START_TIME = time.time()
 
+start_page = Template(r"tpl1630892352832.png", record_pos=(-0.003, 0.649), resolution=(1440, 3200))
+
+start_page_btn = Template(r"tpl1630891902365.png", record_pos=(0.331, 0.885), resolution=(1440, 3200))
+
+home_page_dialog = Template(r"tpl1630894330652.png", record_pos=(-0.003, -0.97), resolution=(1440, 3200))
+
 img_sr = Template(r"tpl1630416664320.png", record_pos=(0.114, -0.16), resolution=(1920, 1080))
-card0 = Template(r"tpl1630778003042.png", threshold=0.9000000000000001, rgb=False, record_pos=(0.374, -0.48), resolution=(1440, 3200))
+card0 = Template(r"tpl1630778003042.png", threshold=0.9000000000000001, rgb=False, record_pos=(0.374, -0.48),
+                 resolution=(1440, 3200))
 
 home_btn = Template(r"tpl1630416962500.png", record_pos=(0.395, 0.035), resolution=(1080, 1920))
 
@@ -28,22 +36,20 @@ fire_list_header = Template(r"tpl1630643739157.png", record_pos=(0.03, -0.667), 
 
 card_add = Template(r"tpl1630777945720.png", record_pos=(0.428, -0.477), resolution=(1440, 3200))
 
-
-start_fire_btn = Template(r"tpl1630677461148.png", threshold=0.45, rgb=True, record_pos=(0.375, -0.4), resolution=(1440, 3200))
-
+start_fire_btn = Template(r"tpl1630677461148.png", threshold=0.45, rgb=False, record_pos=(0.375, -0.4),
+                          resolution=(1440, 3200))
 
 page_status = 0
 card_zero = False
-
+error_num = 5
+packageName = "com.NextFloor.DestinyChild"
 
 
 def getImageText(imagePath):
     request_url = "https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic"
     # 二进制方式打开图片文件
     f = open(imagePath, 'rb')
-    img = base64.b64encode(f.read())
-
-    params = {"image": img}
+    params = {"image": base64.b64encode(f.read())}
     access_token = "24.c26374e1930470d248a112256cc9e94f.2592000.1633274618.282335-24798449"
     request_url = request_url + "?access_token=" + access_token
     headers = {'content-type': 'application/x-www-form-urlencoded'}
@@ -51,7 +57,7 @@ def getImageText(imagePath):
     if response:
         print(response.json())
 
-        
+
 def netAgain(try_num=5):
     if try_num < 0:
         try_num = 5
@@ -65,10 +71,11 @@ def netAgain(try_num=5):
     else:
         return
 
+
 def tryNet():
     netAgain()
 
-        
+
 def goList():
     try:
         return wait(Template(r"tpl1630417399729.png", record_pos=(-0.241, -0.652), resolution=(1080, 1920)))
@@ -133,11 +140,27 @@ def getPageStatus():
         return 1
     elif exists(home_btn):
         return 0
+    elif exists(start_page):
+        return -1
+    elif exists(home_page_dialog):
+        return -2
 
-error_num = 5
+
+def error_cal():
+    global error_num
+    error_num = error_num - 1
+    logger.error("错误：%s" % error_num)
+    if error_num < 0:
+        error_num = 5
+        stop_app(packageName)
+        sleep(1)
+        start_app(packageName)
+        logger.error("重启 APP")
+
+
 while True:
     # 超过5个小时就自动停止
-    if time.time() - START_TIME > 60*60*5:
+    if time.time() - START_TIME > 60 * 60 * 5:
         logger.info("finish for timeout")
         break
     page_status = getPageStatus()
@@ -146,24 +169,17 @@ while True:
         if goList():
             page_status = 1
             continue
-    if page_status == 1:
+    elif page_status == 1:
         if not isZero():
             result_fire = goFire()
             if result_fire == -1:
-                error_num = error_num - 1
-                if error_num < 0:
-                    error_num = 5
-                    stop_app('com.nextfloor.destinychild')
-                    sleep(1)
-                    stop_app("com.nextfloor.destinychild")
-                    logger.error("重启 APP")
                 continue
             elif result_fire == "raid over":
                 logger.info("FIRE RAID OVER")
                 continue
             elif result_fire == 0:
                 logger.info("FIRE FINISH")
-                sleep(60*3)
+                sleep(60 * 3)
                 continue
             else:
                 logger.info("FIRE SLEEP")
@@ -171,7 +187,17 @@ while True:
         else:
             logger.info("CARD ZERO TO SLEEP")
             sleep(60 * 10)
+    elif page_status == -1:
+        try:
+            touch(wait(start_page_btn, timeout=60))
+        except Exception as e:
+            logger.error(e)
+            error_cal()
+    elif page_status == -2:
+        keyevent("BACK")
+        sleep(3)
+        continue
+    else:
+        error_cal()
 
 logger.info("finish")
-
-
