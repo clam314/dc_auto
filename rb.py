@@ -13,8 +13,8 @@ logger.setLevel(logging.INFO)
 
 # auto_setup(__file__,devices=["Android://127.0.0.1:5037/emulator-5554"])
 # auto_setup(__file__,devices=["Android://192.168.0.106:37838/192.168.0.106:37838"])
-init_device(platform="Android", uuid="88c1ffac")
-auto_setup(__file__)
+# init_device(platform="Android", uuid="88c1ffac")
+auto_setup(__file__,devices=["Android:///"])
 
 START_TIME = time.time()
 
@@ -36,7 +36,7 @@ fire_list_header = Template(r"tpl1630643739157.png", record_pos=(0.03, -0.667), 
 
 card_add = Template(r"tpl1630777945720.png", record_pos=(0.428, -0.477), resolution=(1440, 3200))
 
-start_fire_btn = Template(r"tpl1630677461148.png", threshold=0.45, rgb=False, record_pos=(0.375, -0.4),
+start_fire_btn = Template(r"tpl1630677461148.png", threshold=0.4, rgb=False, record_pos=(0.375, -0.4),
                           resolution=(1440, 3200))
 
 page_status = 0
@@ -173,6 +173,8 @@ while True:
         if not isZero():
             result_fire = goFire()
             if result_fire == -1:
+                keyevent('BACK')
+                sleep(60*5)
                 continue
             elif result_fire == "raid over":
                 logger.info("FIRE RAID OVER")
@@ -201,3 +203,4 @@ while True:
         error_cal()
 
 logger.info("finish")
+
